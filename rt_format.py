@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 # %%
-path = '../Semi_Quant/Semi_Quant_Acids_Revised.xls'
+path = 'Semi_Quant_Acids_Revised.xls'
 
 data = pd.read_excel(path, sheet_name=None)
 temp_data = data.copy()
