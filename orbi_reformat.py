@@ -15,15 +15,20 @@ def orbi_reformat(file):
 # also removes empty columns
     df_raw = pd.concat(sheet_to_df_map).dropna(subset=["Exp Method"]).dropna(axis = 1, how = "all").reset_index()
 
-    df_renamed = df_raw.rename(columns = {"level_0":"Compound", "level_1":"Run Order"})
+# Get list of compounds from cells because we apparently can't trust sheet names 
+    cmp_list = pd.read_excel(file, sheet_name = None, skiprows = 1, nrows =1)
+    cmp_df = pd.concat(cmp_list).reset_index().dropna(axis = 1, how = "all").drop(axis = 1, labels = "level_1")
 
-    return df_renamed
+# Merge in compound list on sheetnames then drop and rename some columns
+    df_rename = pd.merge(df_raw,cmp_df, how = "left", on ="level_0").set_index("Component Name").drop(axis =1, labels = "level_0").reset_index().rename(columns = {"level_1":"Run Order"})
+
+    return df_rename
 
 #%% Test block
 """
-file = "NJ_targeted_test2.xlsx"
+file = "Semi_Quant_Acids_Revised.xls"
 
-test_df = orbi_reformat(file)
+test_def = orbi_reformat(file)
 """
+#%% 
 
-#%%
