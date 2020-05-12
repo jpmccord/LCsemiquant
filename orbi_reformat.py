@@ -4,13 +4,10 @@ Created on Mon May 11 14:49:07 2020
 
 @author: James
 """
-
 import pandas as pd
 
-file = "NJ_targeted_test2.xlsx"
-
 #%% Function to accept filepath as input and return a formatted pandas dataframe
-def orbi_reformat(file)
+def orbi_reformat(file):
 # Loads in the dataset as a dict
     sheet_to_df_map = pd.read_excel(file, sheet_name = None, skiprows = 4)
 
@@ -21,3 +18,12 @@ def orbi_reformat(file)
     df_renamed = df_raw.rename(columns = {"level_0":"Compound", "level_1":"Run Order"})
 
     return df_renamed
+
+#%% Test block
+"""
+file = "NJ_targeted_test2.xlsx"
+
+test_df = orbi_reformat(file)
+"""
+
+#%%
