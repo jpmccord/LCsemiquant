@@ -6,10 +6,10 @@ Created on Mon May 11 14:49:07 2020
 """
 import pandas as pd
 
-#%% Function to accept filepath as input and return a formatted pandas dataframe
+#%% Function to accept filepath to targeted Orbitrap reults as input and return a formatted pandas dataframe
 def orbi_reformat(file):
 # Loads in the dataset as a dict
-    sheet_to_df_map = pd.read_excel(file, sheet_name = None, skiprows = 4)
+    sheet_to_df_map = pd.read_excel(file, sheet_name = None, skiprows = 4, na_values = ["NA","NF","nan","INF"])
 
 # Concatenate sheets and drop extra trailing rows from the Orbitrap, assuming Exp Method is always filled for real data
 # also removes empty columns
