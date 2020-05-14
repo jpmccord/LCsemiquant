@@ -45,34 +45,6 @@ raw_df['log10_area'] = np.log10(raw_df["Area"])
 sns.scatterplot(x = 'concentration', y = "Area", hue= 'Component Name', data =raw_df).legend(loc='center left', bbox_to_anchor=(1, 0.5), ncol=1)
 sns.scatterplot(x = 'log10_conc', y = "log10_area", hue= 'Component Name', data =raw_df).legend(loc='center left', bbox_to_anchor=(1, 0.5), ncol=1)
 
-#%% Generate regression lines for compound data
-
-cmp = "C8"
-
-#Placeholder to create reference data for regression until we have a chooser function
-ref_list = raw_df["Component Name"].unique()
-ref_list = ref_list[ref_list!=cmp]
-ref_set = raw_df[raw_df["Component Name"].isin(ref_list)]
-
-#subset to just the test compound
-test_cmp = raw_df[raw_df["Component Name"] == cmp]
-X_test = test_cmp['log10_area'].values[:,np.newaxis]
-Y_test = test_cmp['log10_conc'].values
-
-# LinearRegression expects an array of shape (n, 1) for the "Training data"
-X = ref_set['log10_area'].values[:,np.newaxis]
-# target data is array of shape (n,) 
-Y = ref_set['log10_conc'].values
-
-model = LinearRegression().fit(X,Y)
-
-rmse = sqrt(mean_squared_error(Y_test, model.predict(X_test)))
-
-plt.scatter(X_test, Y_test,color='g')
-plt.plot(X_test, model.predict(X_test),color='k')
-plt.show()
-
-
 #%% Chemotyper Similarity
 fingers = pd.read_csv('Toxprint_Acids_revised.csv', index_col=0)
 
@@ -80,11 +52,23 @@ fingers = pd.read_csv('Toxprint_Acids_revised.csv', index_col=0)
 sim_mat = pd.DataFrame(data=1. - cdist(fingers, fingers, metric='jaccard'), index=fingers.index, columns=fingers.index)
 
 sim_mat = sim_mat.reset_index()
-sim_log = pd.melt(sim_mat, id_vars='index', value_name='similarity')
+dif_chem = pd.melt(sim_mat, id_vars='index', value_name='similarity')
+
+#%% rt Similarity 
+avg_rt = raw_df[["Component Name","RT"]].groupby("Component Name").mean()
+#dif_rt = [imol, jmol for imol in avg_rt for jmol in avg_rt]
+
+dif_rt = pd.DataFrame([[i,i2,r-r2] for i,r in avg_rt.itertuples() for i2,r2 in avg_rt.itertuples()],
+                      columns = ["index", "variable", "rt_dif"])
+
+
+#%% store potential similarity scores in a frame
+sim_log = pd.merge(dif_chem, dif_rt)
+
 #%% Monte Carlo Attempt
 all_cmps = raw_df["Component Name"].unique().tolist()
 
-def model_fit_goodness(cmp,similarity):
+def model_fit_goodness(cmp,similarity = 0, rt_dif = 1000):
     if cmp not in sim_log["variable"].values:
         return [cmp, similarity, None]
         
@@ -93,10 +77,13 @@ def model_fit_goodness(cmp,similarity):
     X_test = test_cmp['log10_area'].values[:,np.newaxis]
     Y_test = test_cmp['log10_conc'].values
     
+    model_test = LinearRegression(fit_intercept = True).fit(X_test,Y_test)
+    
     #subset to reference list for modeling
     ref_list = sim_log[sim_log["index"] == cmp]
-    ref_list = ref_list[ref_list["variable"] != cmp ]
+    ref_list = ref_list[ref_list["variable"] != cmp]
     ref_list = ref_list[ref_list['similarity'] > similarity]
+    ref_list = ref_list[ref_list['rt_dif'] < abs(rt_dif)]
     ref_set = raw_df[raw_df["Component Name"].isin(ref_list['variable'])]
     
     if len(ref_set) == 0:
@@ -105,25 +92,75 @@ def model_fit_goodness(cmp,similarity):
     X = ref_set['log10_area'].values[:,np.newaxis]
     Y = ref_set['log10_conc'].values
     
-    model = LinearRegression().fit(X,Y)
-    rms = sqrt(mean_squared_error(Y_test, model.predict(X_test)))
+    model_ref = LinearRegression(fit_intercept = True).fit(X,Y)
+    rms = sqrt(mean_squared_error(y_true =Y_test, y_pred = model_ref.predict(X_test)))
         
-    return [cmp, similarity, rms]
+    return [cmp, similarity, rt_dif, rms]
 #%% Test all chemotyper similarity levels for decent regression
-results = [model_fit_goodness(cmp, similarity) for cmp in all_cmps for similarity in np.arange(0,1,0.1)]
+results = [model_fit_goodness(cmp, similarity, rt_dif) for cmp in all_cmps for similarity in np.arange(0.5,1,0.05) for rt_dif in np.arange(0,1,0.05)]
 
-results_df = pd.DataFrame(results, columns = ["cmp","similarity","rmse"])
+results_df = pd.DataFrame(results, columns = ["cmp","similarity","rt_dif","rmse"])
     
 
 #%% Plot results from similarity scaling
 
 sns.scatterplot(x = 'similarity',
                 y = "rmse",
-                hue= 'cmp',
+               hue= 'cmp',
                 data =results_df).legend(loc='center left', bbox_to_anchor=(1, 0.5), ncol=1)
 
+#%%
+sns.scatterplot(x = 'rt_dif',
+                y = "rmse",
+                hue= 'cmp',
+                data =results_df[results_df["similarity"] > 0.8].drop_duplicates())
+#%%
+g = sns.PairGrid(results_df)
+g.map_diag(sns.kdeplot)
+g.map_offdiag(sns.kdeplot, n_levels=6);
 
+#%%
+g = sns.pairplot(sim_log[sim_log["rt_dif"] > 0 ])
 
+#%%
+g = sns.PairGrid(sim_log)
+g.map_diag(sns.kdeplot)
+g.map_offdiag(sns.kdeplot, n_levels=6);
+
+#%% Generate regression line plots for compound data
+cmp = "C8"
+similarity = .5
+       
+    #subset to just the test compound
+test_cmp = raw_df[raw_df["Component Name"] == cmp]
+X_test = test_cmp['log10_area'].values[:,np.newaxis]
+Y_test = test_cmp['log10_conc'].values
+    
+model_test = LinearRegression(fit_intercept = True).fit(X_test,Y_test)
+    
+    #subset to reference list for modeling
+ref_list = sim_log[sim_log["index"] == cmp]
+ref_list = ref_list[ref_list["variable"] != cmp ]
+ref_list = ref_list[ref_list['similarity'] > similarity]
+ref_set = raw_df[raw_df["Component Name"].isin(ref_list['variable'])]
+    
+X = ref_set['log10_area'].values[:,np.newaxis]
+Y = ref_set['log10_conc'].values
+    
+model_ref = LinearRegression(fit_intercept = True).fit(X,Y)
+rms = sqrt(mean_squared_error(Y_test, model_ref.predict(X_test)))
+cor = np.corrcoef(model_test.predict(X_test), model_ref.predict(X_test))
+
+#%% Plot both fit models
+plt.scatter(X_test, Y_test,color='g')
+plt.plot(X_test, model_test.predict(X_test),color='k')
+plt.scatter(X, Y,color='b')
+plt.plot(X_test, model_ref.predict(X_test),color='b')
+plt.show()
+
+#%%
+plt.scatter(X_test,model_test.predict(X_test)-model_ref.predict(X_test))
+plt.show()
 #%% Transformation within LinearRegression maybe
 # LinearRegression expects an array of shape (n, 1) for the "Training data"
 X = test_cmp['log10_area'].values[:,np.newaxis]

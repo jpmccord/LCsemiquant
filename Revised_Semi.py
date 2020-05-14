@@ -4,7 +4,7 @@ import pandas as pd
 import re
 
 # reads in the data that was made from format_data.py
-path = '../Semi_Quant/rerun_Acids.xlsx'
+path = 'rerun_Acids.xlsx'
 data = pd.read_excel(path)
 
 # adds in NaN values
@@ -50,7 +50,7 @@ new_data
 from scipy.spatial.distance import cdist
 
 # load in the fingerprint data
-fingers = pd.read_csv('../Semi_Quant/Toxprint_Acids_revised.csv', index_col=0)
+fingers = pd.read_csv('Toxprint_Acids_revised.csv', index_col=0)
 fingers.rename(index=lambda x: re.sub('perfluorodioxadecanoic_acid', 'perfluoro-3,6,-dioxadecanoi…', x), inplace=True)
 fingers.rename(index=lambda x: re.sub('perfluoro\(4-methoxybutanoic\)acid', 'perfluoro(4-methoxybutanoic…', x), inplace=True)
 
@@ -197,7 +197,7 @@ new_data_melt
 # we can load in a function to find the regression line slope, intercepts and y
 # from Local_Regress.py import find_local
 from scipy.stats import linregress
-from Local_Regress import find_local
+#from Local_Regress import find_local
 
 def find_local(compound=None, x=np.nan, data=None):
     if compound == None:
